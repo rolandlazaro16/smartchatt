@@ -266,16 +266,16 @@ export default function Home() {
               >
                 <div className="w-[49px] h-[49px] rounded-full bg-gray-300 dark:bg-gray-600 shrink-0 flex items-center justify-center shadow-sm overflow-hidden">
                   {contact.profilePicture ? (
-                    <img src={`${API_URL}${contact.profilePicture}`} alt={contact.name} className="w-full h-full object-cover" />
+                    <img src={`${API_URL}${contact.profilePicture}`} alt={contact.name || contact.username} className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-white font-bold text-lg">{contact.name.charAt(0).toUpperCase()}</span>
+                    <span className="text-white font-bold text-lg">{(contact.name || contact.username).charAt(0).toUpperCase()}</span>
                   )}
                 </div>
                 <div className="ml-3 flex-1 border-b border-[#f2f2f2] dark:border-[#222d34] pb-3 pt-1">
                   <div className="flex justify-between items-center">
-                    <h3 className="text-[17px] font-normal text-[#111b21] dark:text-[#e9edef]">{contact.name}</h3>
+                    <h3 className="text-[17px] font-normal text-[#111b21] dark:text-[#e9edef]">{contact.name || contact.username}</h3>
                   </div>
-                  <div className="text-[13px] text-[#667781] dark:text-[#8696a0] mt-0.5">{contact.phoneNumber}</div>
+                  <div className="text-[13px] text-[#667781] dark:text-[#8696a0] mt-0.5">{contact.phoneNumber || 'No phone number'}</div>
                 </div>
               </div>
             ))}
@@ -294,14 +294,14 @@ export default function Home() {
                 <div className="flex items-center gap-3 cursor-pointer">
                   <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center shrink-0 overflow-hidden">
                     {selectedContact.profilePicture ? (
-                      <img src={`${API_URL}${selectedContact.profilePicture}`} alt={selectedContact.name} className="w-full h-full object-cover" />
+                      <img src={`${API_URL}${selectedContact.profilePicture}`} alt={selectedContact.name || selectedContact.username} className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-white font-bold">{selectedContact.name.charAt(0).toUpperCase()}</span>
+                      <span className="text-white font-bold">{(selectedContact.name || selectedContact.username).charAt(0).toUpperCase()}</span>
                     )}
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-medium text-[16px] text-[#111b21] dark:text-[#e9edef] leading-5">{selectedContact.name}</span>
-                    <span className="text-[13px] text-[#667781] dark:text-[#8696a0]">{selectedContact.phoneNumber}</span>
+                    <span className="font-medium text-[16px] text-[#111b21] dark:text-[#e9edef] leading-5">{selectedContact.name || selectedContact.username}</span>
+                    <span className="text-[13px] text-[#667781] dark:text-[#8696a0]">{selectedContact.phoneNumber || 'No phone number'}</span>
                   </div>
                 </div>
               </header>
@@ -317,7 +317,7 @@ export default function Home() {
                 </div>
 
                 {messages.length === 0 ? (
-                  <div className="text-center text-[#54656f] mt-10">Send a message to start chatting with {selectedContact.name}!</div>
+                  <div className="text-center text-[#54656f] mt-10">Send a message to start chatting with {selectedContact.name || selectedContact.username}!</div>
                 ) : (
                   messages.map((msg, idx) => {
                     // Message format might differ if they were just sent via socket (which doesn't run full populate)
