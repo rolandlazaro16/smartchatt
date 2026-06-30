@@ -211,6 +211,7 @@ export default function Home() {
       };
 
       mediaRecorder.onstop = async () => {
+        if (!selectedContact) return;
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         const formData = new FormData();
         formData.append("media", audioBlob, "voice-message.webm");
