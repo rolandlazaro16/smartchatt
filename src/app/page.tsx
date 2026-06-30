@@ -1,7 +1,6 @@
-"use client";
-
 import { useState, useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
+import EmojiPicker from 'emoji-picker-react';
 
 interface User {
   _id: string;
@@ -14,6 +13,8 @@ interface User {
 interface Message {
   _id?: string;
   text: string;
+  mediaUrl?: string;
+  mediaType?: string;
   senderId: string;
   receiverId: string;
   createdAt?: string;
@@ -42,8 +43,16 @@ export default function Home() {
   const [authPhone, setAuthPhone] = useState("");
   const [authFile, setAuthFile] = useState<File | null>(null);
 
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Auto-login from localStorage on mount
   useEffect(() => {
@@ -142,6 +151,7 @@ export default function Home() {
   const handleSendMessage = () => {
     if (!inputValue.trim() || !socketRef.current || !selectedContact || !currentUser) return;
 
+    // Normal text message
     socketRef.current.emit("send_message", {
       text: inputValue,
       senderId: currentUser._id,
@@ -149,10 +159,123 @@ export default function Home() {
     });
 
     setInputValue("");
+    setShowEmojiPicker(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") handleSendMessage();
+  };
+
+  const onEmojiClick = (emojiObject: any) => {
+    setInputValue(prev => prev + emojiObject.emoji);
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedContact || !currentUser) return;
+
+    const formData = new FormData();
+    formData.append("media", file);
+    formData.append("receiverId", selectedContact._id);
+    formData.append("mediaType", file.type.startsWith('image/') ? 'image' : 'file');
+
+    try {
+      const res = await fetch(`${API_URL}/api/messages/upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+      const message = await res.json();
+      if (res.ok) {
+        setMessages(prev => [...prev, message]);
+        socketRef.current?.emit("send_message", message); // Notify others via socket
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const formData = new FormData();
+        formData.append("media", audioBlob, "voice-message.webm");
+        formData.append("receiverId", selectedContact._id);
+        formData.append("mediaType", "audio");
+
+        try {
+          const res = await fetch(`${API_URL}/api/messages/upload`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData
+          });
+          const message = await res.json();
+          if (res.ok) {
+            setMessages(prev => [...prev, message]);
+            socketRef.current?.emit("send_message", message);
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+      recordingTimerRef.current = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
+    } catch (err) {
+      console.error("Error accessing mic:", err);
+      alert("Microphone access denied or unavailable.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      setIsRecording(false);
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    }
+  };
+
+  const renderMessageContent = (msg: Message) => {
+    if (msg.mediaUrl) {
+      if (msg.mediaType === 'image') {
+        return (
+          <div className="flex flex-col">
+            <img src={`${API_URL}${msg.mediaUrl}`} alt="Attachment" className="max-w-[200px] sm:max-w-[300px] rounded-md mb-1 cursor-pointer object-cover" />
+            {msg.text && <span className="mt-1">{msg.text}</span>}
+          </div>
+        );
+      }
+      if (msg.mediaType === 'audio') {
+        return <audio controls src={`${API_URL}${msg.mediaUrl}`} className="max-w-[200px] sm:max-w-[250px] h-[40px] outline-none" />;
+      }
+      if (msg.mediaType === 'file') {
+        return (
+          <div className="flex flex-col">
+            <a href={`${API_URL}${msg.mediaUrl}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-[#f0f2f5] dark:bg-[#202c33] p-3 rounded-md mb-1 text-[#00a884] hover:underline">
+              <svg viewBox="0 0 24 24" width="24" height="24" className="fill-current"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"></path></svg>
+              <span>Download File</span>
+            </a>
+            {msg.text && <span>{msg.text}</span>}
+          </div>
+        );
+      }
+    }
+    return <span>{msg.text}</span>;
   };
 
   // ---------------- AUTH UI ----------------
@@ -331,7 +454,7 @@ export default function Home() {
                               : "bg-white dark:bg-[#202c33] rounded-tl-none text-[#111b21] dark:text-[#e9edef]"
                           }`}>
                           <div className="text-[14.2px] leading-[19px] break-words pr-12 pb-2 pl-1">
-                            {msg.text}
+                            {renderMessageContent(msg)}
                           </div>
                           <div className="absolute bottom-1 right-2 flex items-center gap-1">
                             <span className="text-[11px] text-[#667781] dark:text-[#8696a0] leading-none mt-1">
@@ -352,39 +475,55 @@ export default function Home() {
               </div>
 
               {/* Input Area */}
-              <div className="h-[62px] px-4 py-2.5 bg-[#f0f2f5] dark:bg-[#202c33] flex items-center gap-4 shrink-0 z-10">
+              <div className="h-[62px] px-4 py-2.5 bg-[#f0f2f5] dark:bg-[#202c33] flex items-center gap-4 shrink-0 z-10 relative">
+                
+                {/* Emoji Picker Popup */}
+                {showEmojiPicker && (
+                  <div className="absolute bottom-[70px] left-4 z-50 shadow-xl">
+                    <EmojiPicker onEmojiClick={onEmojiClick} width={300} height={400} />
+                  </div>
+                )}
+
                 {/* Left Icons: Emoji & Attach */}
                 <div className="flex items-center gap-4 text-[#54656f] dark:text-[#8696a0]">
-                  <button className="hover:text-[#111b21] dark:hover:text-[#d1d7db] transition-colors" aria-label="Emoji">
+                  <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className={`transition-colors ${showEmojiPicker ? 'text-[#00a884]' : 'hover:text-[#111b21] dark:hover:text-[#d1d7db]'}`} aria-label="Emoji">
                     <svg viewBox="0 0 24 24" width="26" height="26" className="fill-current"><path d="M9.153 11.603c.795 0 1.439-.879 1.439-1.962s-.644-1.962-1.439-1.962-1.439.879-1.439 1.962.644 1.962 1.439 1.962zm-3.204 1.362c-.026-.307-.131 5.218 6.063 5.551 6.066-.25 6.066-5.551 6.066-5.551-6.078 1.416-12.13 0-12.13 0zm11.362 1.108s-.67 1.96-5.05 1.96c-3.506 0-5.39-1.165-5.608-1.96 0 0 5.912 1.055 10.658 0zM11.804 1.011C5.609 1.011.978 6.033.978 12.228s4.826 10.761 11.021 10.761S23.02 18.423 23.02 12.228c.001-6.195-5.021-11.217-11.216-11.217zM12 21.354c-5.273 0-9.381-3.886-9.381-9.159s3.942-9.548 9.215-9.548 9.548 4.275 9.548 9.548c-.001 5.272-4.109 9.159-9.382 9.159zm3.108-9.751c.795 0 1.439-.879 1.439-1.962s-.644-1.962-1.439-1.962-1.439.879-1.439 1.962.644 1.962 1.439 1.962z"></path></svg>
                   </button>
-                  <button className="hover:text-[#111b21] dark:hover:text-[#d1d7db] transition-colors" aria-label="Attach">
+                  <button onClick={() => fileInputRef.current?.click()} className="hover:text-[#111b21] dark:hover:text-[#d1d7db] transition-colors" aria-label="Attach">
                     <svg viewBox="0 0 24 24" width="26" height="26" className="fill-current"><path d="M11.999 14.942c2.001 0 3.531-1.53 3.531-3.531V4.35c0-2.78-2.257-5.036-5.036-5.036s-5.036 2.256-5.036 5.036v7.061c0 2.226 1.81 4.036 4.036 4.036 2.226 0 4.036-1.81 4.036-4.036v-6.31h-1.614v6.31c0 1.336-1.087 2.422-2.422 2.422-1.336 0-2.422-1.086-2.422-2.422V4.35c0-1.89 1.531-3.422 3.422-3.422 1.89 0 3.422 1.532 3.422 3.422v7.061c0 1.112-.904 2.016-2.016 2.016s-2.016-.904-2.016-2.016v-6.31H7.264v6.31c0 2.613 2.122 4.735 4.735 4.735z"></path></svg>
                   </button>
+                  <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*,.pdf,.doc,.docx" />
                 </div>
                 
-                {/* Text Input */}
+                {/* Text Input / Recording Indicator */}
                 <div className="flex-1">
-                  <input 
-                    type="text" 
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Type a message" 
-                    className="w-full h-10 bg-white dark:bg-[#2a3942] text-[15px] text-[#111b21] dark:text-[#e9edef] rounded-lg px-4 py-2 focus:outline-none placeholder-[#667781] dark:placeholder-[#8696a0]"
-                  />
+                  {isRecording ? (
+                    <div className="w-full h-10 bg-white dark:bg-[#2a3942] rounded-lg px-4 flex items-center gap-3 text-red-500 animate-pulse">
+                      <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
+                      <span className="font-medium text-[15px]">Recording... {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}</span>
+                    </div>
+                  ) : (
+                    <input 
+                      type="text" 
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Type a message" 
+                      className="w-full h-10 bg-white dark:bg-[#2a3942] text-[15px] text-[#111b21] dark:text-[#e9edef] rounded-lg px-4 py-2 focus:outline-none placeholder-[#667781] dark:placeholder-[#8696a0]"
+                    />
+                  )}
                 </div>
                 
                 {/* Right Icon: Mic / Send */}
                 <button 
-                  onClick={inputValue.trim() ? handleSendMessage : undefined}
+                  onClick={inputValue.trim() ? handleSendMessage : (isRecording ? stopRecording : startRecording)}
                   className="text-[#54656f] dark:text-[#8696a0] hover:text-[#111b21] dark:hover:text-[#d1d7db] shrink-0 transition-colors" 
-                  aria-label={inputValue.trim() ? "Send" : "Voice Message"}
+                  aria-label={inputValue.trim() ? "Send" : (isRecording ? "Stop Recording" : "Voice Message")}
                 >
                   {inputValue.trim() ? (
                     <svg viewBox="0 0 24 24" width="26" height="26" className="fill-current text-[#00a884]"><path d="M1.101 21.757L23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"></path></svg>
                   ) : (
-                    <svg viewBox="0 0 24 24" width="26" height="26" className="fill-current"><path d="M11.999 14.942c2.001 0 3.531-1.53 3.531-3.531V4.35c0-2.78-2.257-5.036-5.036-5.036s-5.036 2.256-5.036 5.036v7.061c0 2.226 1.81 4.036 4.036 4.036 2.226 0 4.036-1.81 4.036-4.036v-6.31h-1.614v6.31c0 1.336-1.087 2.422-2.422 2.422-1.336 0-2.422-1.086-2.422-2.422V4.35c0-1.89 1.531-3.422 3.422-3.422 1.89 0 3.422 1.532 3.422 3.422v7.061c0 1.112-.904 2.016-2.016 2.016s-2.016-.904-2.016-2.016v-6.31H7.264v6.31c0 2.613 2.122 4.735 4.735 4.735z" opacity="0.4" transform="scale(0.8) translate(3,3)" /><path d="M11.995 18.061c3.045 0 5.541-2.43 5.541-5.419v-7.225C17.536 2.429 15.05 0 11.995 0 8.94 0 6.454 2.429 6.454 5.417v7.225c0 2.99 2.486 5.419 5.541 5.419zm-3.83-12.644c0-2.129 1.701-3.83 3.83-3.83 2.13 0 3.83 1.701 3.83 3.83v7.225c0 2.13-1.7 3.83-3.83 3.83-2.129 0-3.83-1.7-3.83-3.83v-7.225zm8.567 5.761h1.761c-.046 4.542-3.666 8.358-8.243 8.878v3.479H8.502v-3.479c-4.577-.52-8.197-4.336-8.243-8.878h1.762c.046 3.619 3.003 6.643 6.632 7.152v.005h3.398v-.005c3.629-.509 6.586-3.533 6.632-7.152z"></path></svg>
+                    <svg viewBox="0 0 24 24" width="26" height="26" className={`fill-current ${isRecording ? 'text-red-500' : ''}`}><path d="M11.999 14.942c2.001 0 3.531-1.53 3.531-3.531V4.35c0-2.78-2.257-5.036-5.036-5.036s-5.036 2.256-5.036 5.036v7.061c0 2.226 1.81 4.036 4.036 4.036 2.226 0 4.036-1.81 4.036-4.036v-6.31h-1.614v6.31c0 1.336-1.087 2.422-2.422 2.422-1.336 0-2.422-1.086-2.422-2.422V4.35c0-1.89 1.531-3.422 3.422-3.422 1.89 0 3.422 1.532 3.422 3.422v7.061c0 1.112-.904 2.016-2.016 2.016s-2.016-.904-2.016-2.016v-6.31H7.264v6.31c0 2.613 2.122 4.735 4.735 4.735z" opacity={isRecording ? "0" : "0.4"} transform="scale(0.8) translate(3,3)" /><path d="M11.995 18.061c3.045 0 5.541-2.43 5.541-5.419v-7.225C17.536 2.429 15.05 0 11.995 0 8.94 0 6.454 2.429 6.454 5.417v7.225c0 2.99 2.486 5.419 5.541 5.419zm-3.83-12.644c0-2.129 1.701-3.83 3.83-3.83 2.13 0 3.83 1.701 3.83 3.83v7.225c0 2.13-1.7 3.83-3.83 3.83-2.129 0-3.83-1.7-3.83-3.83v-7.225zm8.567 5.761h1.761c-.046 4.542-3.666 8.358-8.243 8.878v3.479H8.502v-3.479c-4.577-.52-8.197-4.336-8.243-8.878h1.762c.046 3.619 3.003 6.643 6.632 7.152v.005h3.398v-.005c3.629-.509 6.586-3.533 6.632-7.152z"></path></svg>
                   )}
                 </button>
               </div>

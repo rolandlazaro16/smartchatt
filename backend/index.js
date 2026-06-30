@@ -48,6 +48,8 @@ const User = mongoose.model('User', userSchema);
 
 const messageSchema = new mongoose.Schema({
   text: String,
+  mediaUrl: String,
+  mediaType: String,
   senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   receiverId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   createdAt: { type: Date, default: Date.now }
@@ -136,14 +138,40 @@ app.get('/api/messages/:contactId', authenticateToken, async (req, res) => {
   }
 });
 
+// Upload Media Message
+app.post('/api/messages/upload', authenticateToken, upload.single('media'), async (req, res) => {
+  try {
+    const { receiverId, text, mediaType } = req.body;
+    if (!req.file) return res.status(400).json({ error: 'No media uploaded' });
+
+    const mediaUrl = `/uploads/${req.file.filename}`;
+    const message = new Message({
+      text: text || '',
+      mediaUrl,
+      mediaType,
+      senderId: req.user.userId,
+      receiverId
+    });
+    await message.save();
+
+    // Broadcast this message in real-time to the receiver
+    const receiverSocketId = Object.keys(users).find(key => users[key] === receiverId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("receive_message", message);
+    }
+
+    res.json(message);
+  } catch (error) {
+    res.status(500).json({ error: 'Upload failed' });
+  }
+});
+
 app.get('/', (req, res) => res.send('SmartChatt API is running!'));
 
 // --- Socket.IO ---
-const userSockets = {}; // Map userId to socketId
-
 io.on('connection', (socket) => {
   socket.on('register_socket', (userId) => {
-    userSockets[userId] = socket.id;
+    users[socket.id] = userId;
     console.log(`User ${userId} connected with socket ${socket.id}`);
   });
 
@@ -154,7 +182,7 @@ io.on('connection', (socket) => {
       await newMessage.save();
 
       // Send to receiver if online
-      const receiverSocketId = userSockets[receiverId];
+      const receiverSocketId = Object.keys(users).find(key => users[key] === receiverId);
       if (receiverSocketId) {
         io.to(receiverSocketId).emit('receive_message', newMessage);
       }
@@ -167,13 +195,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    // Remove disconnected socket
-    for (const [userId, socketId] of Object.entries(userSockets)) {
-      if (socketId === socket.id) {
-        delete userSockets[userId];
-        break;
-      }
-    }
+    console.log("User disconnected:", socket.id);
+    delete users[socket.id];
   });
 });
 
