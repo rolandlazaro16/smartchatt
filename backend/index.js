@@ -40,6 +40,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
+  name: { type: String, required: true },
+  phoneNumber: { type: String, required: true },
   profilePicture: { type: String, default: '' },
 });
 const User = mongoose.model('User', userSchema);
@@ -71,18 +73,18 @@ const authenticateToken = (req, res, next) => {
 // Register
 app.post('/api/auth/register', upload.single('profilePicture'), async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, name, phoneNumber } = req.body;
     const existingUser = await User.findOne({ username });
     if (existingUser) return res.status(400).json({ error: 'Username already exists' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const profilePicture = req.file ? `/uploads/${req.file.filename}` : '';
 
-    const user = new User({ username, password: hashedPassword, profilePicture });
+    const user = new User({ username, password: hashedPassword, name, phoneNumber, profilePicture });
     await user.save();
 
     const token = jwt.sign({ userId: user._id, username: user.username }, JWT_SECRET);
-    res.json({ token, user: { _id: user._id, username, profilePicture } });
+    res.json({ token, user: { _id: user._id, username, name, phoneNumber, profilePicture } });
   } catch (error) {
     res.status(500).json({ error: 'Registration failed' });
   }
@@ -99,7 +101,7 @@ app.post('/api/auth/login', async (req, res) => {
     if (!validPassword) return res.status(400).json({ error: 'Invalid credentials' });
 
     const token = jwt.sign({ userId: user._id, username: user.username }, JWT_SECRET);
-    res.json({ token, user: { _id: user._id, username, profilePicture: user.profilePicture } });
+    res.json({ token, user: { _id: user._id, username, name: user.name, phoneNumber: user.phoneNumber, profilePicture: user.profilePicture } });
   } catch (error) {
     res.status(500).json({ error: 'Login failed' });
   }

@@ -6,6 +6,8 @@ import { io, Socket } from "socket.io-client";
 interface User {
   _id: string;
   username: string;
+  name: string;
+  phoneNumber: string;
   profilePicture: string;
 }
 
@@ -36,6 +38,8 @@ export default function Home() {
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authUsername, setAuthUsername] = useState("");
   const [authPassword, setAuthPassword] = useState("");
+  const [authName, setAuthName] = useState("");
+  const [authPhone, setAuthPhone] = useState("");
   const [authFile, setAuthFile] = useState<File | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
@@ -101,6 +105,8 @@ export default function Home() {
       const formData = new FormData();
       formData.append("username", authUsername);
       formData.append("password", authPassword);
+      formData.append("name", authName);
+      formData.append("phoneNumber", authPhone);
       if (authFile) formData.append("profilePicture", authFile);
       body = formData;
     } else {
@@ -175,15 +181,33 @@ export default function Home() {
               required 
             />
             {authMode === "register" && (
-              <div className="flex flex-col gap-1">
-                <label className="text-sm text-[#54656f] dark:text-[#aebac1]">Profile Picture (Optional)</label>
+              <>
                 <input 
-                  type="file" 
-                  accept="image/*"
-                  onChange={(e) => setAuthFile(e.target.files?.[0] || null)}
-                  className="text-sm text-[#54656f] dark:text-[#aebac1]"
+                  type="text" 
+                  placeholder="Full Name" 
+                  value={authName}
+                  onChange={(e) => setAuthName(e.target.value)}
+                  className="px-4 py-2 border rounded-md dark:bg-[#2a3942] dark:border-[#222d34] dark:text-[#e9edef]"
+                  required 
                 />
-              </div>
+                <input 
+                  type="tel" 
+                  placeholder="Phone Number" 
+                  value={authPhone}
+                  onChange={(e) => setAuthPhone(e.target.value)}
+                  className="px-4 py-2 border rounded-md dark:bg-[#2a3942] dark:border-[#222d34] dark:text-[#e9edef]"
+                  required 
+                />
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm text-[#54656f] dark:text-[#aebac1]">Profile Picture (Optional)</label>
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={(e) => setAuthFile(e.target.files?.[0] || null)}
+                    className="text-sm text-[#54656f] dark:text-[#aebac1]"
+                  />
+                </div>
+              </>
             )}
             <button type="submit" className="bg-[#00a884] text-white py-2 rounded-md font-medium hover:bg-[#008f6f]">
               {authMode === "login" ? "Login" : "Register"}
@@ -242,15 +266,16 @@ export default function Home() {
               >
                 <div className="w-[49px] h-[49px] rounded-full bg-gray-300 dark:bg-gray-600 shrink-0 flex items-center justify-center shadow-sm overflow-hidden">
                   {contact.profilePicture ? (
-                    <img src={`${API_URL}${contact.profilePicture}`} alt={contact.username} className="w-full h-full object-cover" />
+                    <img src={`${API_URL}${contact.profilePicture}`} alt={contact.name} className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-white font-bold text-lg">{contact.username.charAt(0).toUpperCase()}</span>
+                    <span className="text-white font-bold text-lg">{contact.name.charAt(0).toUpperCase()}</span>
                   )}
                 </div>
                 <div className="ml-3 flex-1 border-b border-[#f2f2f2] dark:border-[#222d34] pb-3 pt-1">
                   <div className="flex justify-between items-center">
-                    <h3 className="text-[17px] font-normal text-[#111b21] dark:text-[#e9edef]">{contact.username}</h3>
+                    <h3 className="text-[17px] font-normal text-[#111b21] dark:text-[#e9edef]">{contact.name}</h3>
                   </div>
+                  <div className="text-[13px] text-[#667781] dark:text-[#8696a0] mt-0.5">{contact.phoneNumber}</div>
                 </div>
               </div>
             ))}
@@ -269,13 +294,14 @@ export default function Home() {
                 <div className="flex items-center gap-3 cursor-pointer">
                   <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center shrink-0 overflow-hidden">
                     {selectedContact.profilePicture ? (
-                      <img src={`${API_URL}${selectedContact.profilePicture}`} alt={selectedContact.username} className="w-full h-full object-cover" />
+                      <img src={`${API_URL}${selectedContact.profilePicture}`} alt={selectedContact.name} className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-white font-bold">{selectedContact.username.charAt(0).toUpperCase()}</span>
+                      <span className="text-white font-bold">{selectedContact.name.charAt(0).toUpperCase()}</span>
                     )}
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-medium text-[16px] text-[#111b21] dark:text-[#e9edef] leading-5">{selectedContact.username}</span>
+                    <span className="font-medium text-[16px] text-[#111b21] dark:text-[#e9edef] leading-5">{selectedContact.name}</span>
+                    <span className="text-[13px] text-[#667781] dark:text-[#8696a0]">{selectedContact.phoneNumber}</span>
                   </div>
                 </div>
               </header>
@@ -291,7 +317,7 @@ export default function Home() {
                 </div>
 
                 {messages.length === 0 ? (
-                  <div className="text-center text-[#54656f] mt-10">Send a message to start chatting with {selectedContact.username}!</div>
+                  <div className="text-center text-[#54656f] mt-10">Send a message to start chatting with {selectedContact.name}!</div>
                 ) : (
                   messages.map((msg, idx) => {
                     // Message format might differ if they were just sent via socket (which doesn't run full populate)
