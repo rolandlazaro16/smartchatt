@@ -352,7 +352,18 @@ export default function Home() {
               </div>
 
               {/* Input Area */}
-              <div className="h-[62px] px-4 py-2.5 bg-[#f0f2f5] dark:bg-[#202c33] flex items-center gap-3 shrink-0 z-10">
+              <div className="h-[62px] px-4 py-2.5 bg-[#f0f2f5] dark:bg-[#202c33] flex items-center gap-4 shrink-0 z-10">
+                {/* Left Icons: Emoji & Attach */}
+                <div className="flex items-center gap-4 text-[#54656f] dark:text-[#8696a0]">
+                  <button className="hover:text-[#111b21] dark:hover:text-[#d1d7db] transition-colors" aria-label="Emoji">
+                    <svg viewBox="0 0 24 24" width="26" height="26" className="fill-current"><path d="M9.153 11.603c.795 0 1.439-.879 1.439-1.962s-.644-1.962-1.439-1.962-1.439.879-1.439 1.962.644 1.962 1.439 1.962zm-3.204 1.362c-.026-.307-.131 5.218 6.063 5.551 6.066-.25 6.066-5.551 6.066-5.551-6.078 1.416-12.13 0-12.13 0zm11.362 1.108s-.67 1.96-5.05 1.96c-3.506 0-5.39-1.165-5.608-1.96 0 0 5.912 1.055 10.658 0zM11.804 1.011C5.609 1.011.978 6.033.978 12.228s4.826 10.761 11.021 10.761S23.02 18.423 23.02 12.228c.001-6.195-5.021-11.217-11.216-11.217zM12 21.354c-5.273 0-9.381-3.886-9.381-9.159s3.942-9.548 9.215-9.548 9.548 4.275 9.548 9.548c-.001 5.272-4.109 9.159-9.382 9.159zm3.108-9.751c.795 0 1.439-.879 1.439-1.962s-.644-1.962-1.439-1.962-1.439.879-1.439 1.962.644 1.962 1.439 1.962z"></path></svg>
+                  </button>
+                  <button className="hover:text-[#111b21] dark:hover:text-[#d1d7db] transition-colors" aria-label="Attach">
+                    <svg viewBox="0 0 24 24" width="26" height="26" className="fill-current"><path d="M11.999 14.942c2.001 0 3.531-1.53 3.531-3.531V4.35c0-2.78-2.257-5.036-5.036-5.036s-5.036 2.256-5.036 5.036v7.061c0 2.226 1.81 4.036 4.036 4.036 2.226 0 4.036-1.81 4.036-4.036v-6.31h-1.614v6.31c0 1.336-1.087 2.422-2.422 2.422-1.336 0-2.422-1.086-2.422-2.422V4.35c0-1.89 1.531-3.422 3.422-3.422 1.89 0 3.422 1.532 3.422 3.422v7.061c0 1.112-.904 2.016-2.016 2.016s-2.016-.904-2.016-2.016v-6.31H7.264v6.31c0 2.613 2.122 4.735 4.735 4.735z"></path></svg>
+                  </button>
+                </div>
+                
+                {/* Text Input */}
                 <div className="flex-1">
                   <input 
                     type="text" 
@@ -363,13 +374,18 @@ export default function Home() {
                     className="w-full h-10 bg-white dark:bg-[#2a3942] text-[15px] text-[#111b21] dark:text-[#e9edef] rounded-lg px-4 py-2 focus:outline-none placeholder-[#667781] dark:placeholder-[#8696a0]"
                   />
                 </div>
+                
+                {/* Right Icon: Mic / Send */}
                 <button 
-                  onClick={handleSendMessage}
-                  className="text-[#54656f] dark:text-[#8696a0] hover:text-[#111b21] dark:hover:text-[#d1d7db] shrink-0" 
-                  aria-label="Send"
-                  disabled={!inputValue.trim()}
+                  onClick={inputValue.trim() ? handleSendMessage : undefined}
+                  className="text-[#54656f] dark:text-[#8696a0] hover:text-[#111b21] dark:hover:text-[#d1d7db] shrink-0 transition-colors" 
+                  aria-label={inputValue.trim() ? "Send" : "Voice Message"}
                 >
-                  <svg viewBox="0 0 24 24" width="24" height="24" className={`fill-current ${inputValue.trim() ? 'text-[#00a884]' : ''}`}><path d="M1.101 21.757L23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"></path></svg>
+                  {inputValue.trim() ? (
+                    <svg viewBox="0 0 24 24" width="26" height="26" className="fill-current text-[#00a884]"><path d="M1.101 21.757L23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"></path></svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" width="26" height="26" className="fill-current"><path d="M11.999 14.942c2.001 0 3.531-1.53 3.531-3.531V4.35c0-2.78-2.257-5.036-5.036-5.036s-5.036 2.256-5.036 5.036v7.061c0 2.226 1.81 4.036 4.036 4.036 2.226 0 4.036-1.81 4.036-4.036v-6.31h-1.614v6.31c0 1.336-1.087 2.422-2.422 2.422-1.336 0-2.422-1.086-2.422-2.422V4.35c0-1.89 1.531-3.422 3.422-3.422 1.89 0 3.422 1.532 3.422 3.422v7.061c0 1.112-.904 2.016-2.016 2.016s-2.016-.904-2.016-2.016v-6.31H7.264v6.31c0 2.613 2.122 4.735 4.735 4.735z" opacity="0.4" transform="scale(0.8) translate(3,3)" /><path d="M11.995 18.061c3.045 0 5.541-2.43 5.541-5.419v-7.225C17.536 2.429 15.05 0 11.995 0 8.94 0 6.454 2.429 6.454 5.417v7.225c0 2.99 2.486 5.419 5.541 5.419zm-3.83-12.644c0-2.129 1.701-3.83 3.83-3.83 2.13 0 3.83 1.701 3.83 3.83v7.225c0 2.13-1.7 3.83-3.83 3.83-2.129 0-3.83-1.7-3.83-3.83v-7.225zm8.567 5.761h1.761c-.046 4.542-3.666 8.358-8.243 8.878v3.479H8.502v-3.479c-4.577-.52-8.197-4.336-8.243-8.878h1.762c.046 3.619 3.003 6.643 6.632 7.152v.005h3.398v-.005c3.629-.509 6.586-3.533 6.632-7.152z"></path></svg>
+                  )}
                 </button>
               </div>
             </>
