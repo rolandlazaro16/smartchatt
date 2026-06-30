@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Image from "next/image";
 import { io, Socket } from "socket.io-client";
 
 interface Message {
@@ -13,6 +12,12 @@ interface Message {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://smartchatt.onrender.com';
 
+// Format time from timestamp
+const formatTime = (dateString?: string) => {
+  if (!dateString) return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -20,17 +25,13 @@ export default function Home() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // 1. Fetch initial message history from the backend REST API
     fetch(`${API_URL}/api/messages`)
       .then((res) => res.json())
       .then((data) => {
-        if (Array.isArray(data)) {
-          setMessages(data);
-        }
+        if (Array.isArray(data)) setMessages(data);
       })
       .catch((err) => console.error("Failed to fetch messages:", err));
 
-    // 2. Connect to Socket.IO for real-time updates
     socketRef.current = io(API_URL);
 
     socketRef.current.on("receive_message", (message: Message) => {
@@ -42,7 +43,6 @@ export default function Home() {
     };
   }, []);
 
-  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -50,10 +50,9 @@ export default function Home() {
   const handleSendMessage = () => {
     if (!inputValue.trim() || !socketRef.current) return;
 
-    // Emit the message to the backend via WebSocket
     socketRef.current.emit("send_message", {
       text: inputValue,
-      sender: "User",
+      sender: "User", // Hardcoded for now
     });
 
     setInputValue("");
@@ -66,89 +65,153 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-[#0a0a0a]">
-      {/* Sidebar */}
-      <aside className="w-80 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-[#111] flex flex-col hidden md:flex">
-        <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
-          <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-purple-600">
-            SmartChatt
-          </h1>
-          <button className="p-2 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
-          {/* Static Chat History Items for design */}
-          <div className="p-3 rounded-xl bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-            <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">Getting started with Next.js</p>
-            <p className="text-xs text-gray-500 mt-1">Today, 2:30 PM</p>
-          </div>
-          <div className="p-3 rounded-xl cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
-            <p className="text-sm font-medium text-gray-800 dark:text-gray-300 truncate">How to build a chat interface</p>
-            <p className="text-xs text-gray-500 mt-1">Yesterday</p>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main Chat Area */}
-      <main className="flex-1 flex flex-col relative">
-        <header className="h-14 border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-10">
-          <h2 className="font-semibold text-gray-800 dark:text-gray-200">Current Chat</h2>
-        </header>
-
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 pb-32">
-          {messages.length === 0 ? (
-            <div className="text-center text-gray-500 mt-10">
-              No messages yet. Start typing below!
+    <div className="flex h-screen w-full bg-[#eae6df] dark:bg-[#111b21] overflow-hidden text-[#111b21] dark:text-[#e9edef]">
+      <div className="flex w-full h-full max-w-[1600px] mx-auto xl:py-4 xl:px-4">
+        
+        {/* Sidebar */}
+        <aside className="w-[30%] min-w-[300px] max-w-[400px] bg-white dark:bg-[#111b21] border-r border-[#d1d7db] dark:border-[#222d34] flex flex-col hidden md:flex">
+          {/* Sidebar Header */}
+          <header className="h-[60px] bg-[#f0f2f5] dark:bg-[#202c33] flex items-center justify-between px-4 shrink-0">
+            <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center overflow-hidden shrink-0">
+              {/* User Avatar Placeholder */}
+              <svg viewBox="0 0 24 24" width="24" height="24" className="text-gray-100 fill-current"><path d="M12 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm9 11a1 1 0 0 1-2 0v-2a3 3 0 0 0-3-3H8a3 3 0 0 0-3 3v2a1 1 0 0 1-2 0v-2a5 5 0 0 1 5-5h8a5 5 0 0 1 5 5v2z"></path></svg>
             </div>
-          ) : (
-            messages.map((msg, idx) => {
-              const isUser = msg.sender === "User";
-              return (
-                <div key={msg._id || idx} className={`flex gap-4 ${isUser ? "flex-row-reverse" : ""}`}>
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${isUser ? "bg-gray-200 dark:bg-gray-700" : "bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg"}`}>
-                    {isUser ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500 dark:text-gray-400"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
-                    )}
-                  </div>
-                  <div className={`flex flex-col gap-1 max-w-[80%] ${isUser ? "items-end" : ""}`}>
-                    <span className={`text-sm font-medium text-gray-500 ${isUser ? "mr-1" : "ml-1"}`}>{msg.sender}</span>
-                    <div className={`${isUser ? "bg-blue-600 text-white rounded-tr-none" : "bg-white dark:bg-[#111] text-gray-800 dark:text-gray-200 border border-gray-100 dark:border-gray-800 rounded-tl-none"} p-4 rounded-2xl shadow-sm leading-relaxed`}>
-                      {msg.text}
+            <div className="flex items-center gap-4 text-[#54656f] dark:text-[#aebac1]">
+              <button aria-label="Communities"><svg viewBox="0 0 24 24" width="24" height="24" className="fill-current"><path d="M12.062 4.195a2.531 2.531 0 1 0 0 5.062 2.531 2.531 0 0 0 0-5.062zm0 6.562a4.03 4.03 0 1 1 0-8.062 4.03 4.03 0 0 1 0 8.062z"></path></svg></button>
+              <button aria-label="Status"><svg viewBox="0 0 24 24" width="24" height="24" className="fill-current"><path d="M12.062 1.344a10.718 10.718 0 1 0 0 21.437 10.718 10.718 0 0 0 0-21.437zm0 19.937a9.219 9.219 0 1 1 0-18.437 9.219 9.219 0 0 1 0 18.437z"></path></svg></button>
+              <button aria-label="New chat"><svg viewBox="0 0 24 24" width="24" height="24" className="fill-current"><path d="M19.005 3.175H4.674C3.642 3.175 3 3.789 3 4.821V21.02l3.544-3.514h12.461c1.033 0 2.064-1.06 2.064-2.093V4.821c-.001-1.032-1.032-1.646-2.064-1.646zm-4.989 9.869H7.041V11.1h6.975v1.944zm3-4H7.041V7.1h9.975v1.944z"></path></svg></button>
+              <button aria-label="Menu"><svg viewBox="0 0 24 24" width="24" height="24" className="fill-current"><path d="M12 7a2 2 0 1 0-.001-4.001A2 2 0 0 0 12 7zm0 2a2 2 0 1 0-.001 3.999A2 2 0 0 0 12 9zm0 6a2 2 0 1 0-.001 3.999A2 2 0 0 0 12 15z"></path></svg></button>
+            </div>
+          </header>
+
+          {/* Search Bar */}
+          <div className="p-2 bg-white dark:bg-[#111b21] border-b border-[#f2f2f2] dark:border-[#222d34]">
+            <div className="flex items-center bg-[#f0f2f5] dark:bg-[#202c33] rounded-lg px-3 py-1">
+              <svg viewBox="0 0 24 24" width="20" height="20" className="text-[#54656f] dark:text-[#aebac1] fill-current shrink-0"><path d="M15.009 13.805h-.636l-.22-.219a5.184 5.184 0 0 0 1.256-3.386 5.207 5.207 0 1 0-5.207 5.208 5.183 5.183 0 0 0 3.385-1.255l.221.22v.635l4.004 3.999 1.194-1.195-3.997-4.007zm-5.6-1.195a3.997 3.997 0 1 1 0-7.995 3.997 3.997 0 0 1 0 7.995z"></path></svg>
+              <input type="text" placeholder="Search or start new chat" className="w-full bg-transparent border-none focus:outline-none text-sm px-4 py-1.5 text-[#3b4a54] dark:text-[#d1d7db] placeholder-[#667781] dark:placeholder-[#8696a0]" />
+            </div>
+          </div>
+
+          {/* Chat List */}
+          <div className="flex-1 overflow-y-auto bg-white dark:bg-[#111b21]">
+            <div className="flex items-center px-3 py-3 hover:bg-[#f5f6f6] dark:hover:bg-[#202c33] cursor-pointer bg-[#f0f2f5] dark:bg-[#2a3942]">
+              <div className="w-[49px] h-[49px] rounded-full bg-gradient-to-br from-[#00a884] to-[#005c4b] shrink-0 flex items-center justify-center shadow-sm">
+                <span className="text-white font-bold text-lg">S</span>
+              </div>
+              <div className="ml-3 flex-1 border-b border-[#f2f2f2] dark:border-[#222d34] pb-3 pt-1">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-[17px] font-normal text-[#111b21] dark:text-[#e9edef]">SmartChatt Bot</h3>
+                  <span className="text-xs text-[#00a884]">12:00 PM</span>
+                </div>
+                <div className="text-[14px] text-[#667781] dark:text-[#8696a0] truncate mt-0.5 max-w-[200px]">
+                  Online
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* Main Chat Area */}
+        <main className="flex-1 flex flex-col bg-[#efeae2] dark:bg-[#0b141a] relative border-l border-[#d1d7db] dark:border-[#222d34]">
+          {/* Chat Header */}
+          <header className="h-[60px] bg-[#f0f2f5] dark:bg-[#202c33] flex items-center justify-between px-4 shrink-0 shadow-sm z-10">
+            <div className="flex items-center gap-3 cursor-pointer">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00a884] to-[#005c4b] flex items-center justify-center shrink-0">
+                <span className="text-white font-bold">S</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="font-medium text-[16px] text-[#111b21] dark:text-[#e9edef] leading-5">SmartChatt Bot</span>
+                <span className="text-[13px] text-[#667781] dark:text-[#8696a0]">online</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-5 text-[#54656f] dark:text-[#aebac1]">
+              <button aria-label="Search"><svg viewBox="0 0 24 24" width="24" height="24" className="fill-current"><path d="M15.9 14.3H15l-.3-.3c1-1.1 1.6-2.7 1.6-4.3 0-3.7-3-6.7-6.7-6.7S3 6 3 9.7s3 6.7 6.7 6.7c1.6 0 3.2-.6 4.3-1.6l.3.3v.8l5.1 5.1 1.5-1.5-5-5.2zm-6.2 0c-2.6 0-4.6-2.1-4.6-4.6s2.1-4.6 4.6-4.6 4.6 2.1 4.6 4.6-2 4.6-4.6 4.6z"></path></svg></button>
+              <button aria-label="Menu"><svg viewBox="0 0 24 24" width="24" height="24" className="fill-current"><path d="M12 7a2 2 0 1 0-.001-4.001A2 2 0 0 0 12 7zm0 2a2 2 0 1 0-.001 3.999A2 2 0 0 0 12 9zm0 6a2 2 0 1 0-.001 3.999A2 2 0 0 0 12 15z"></path></svg></button>
+            </div>
+          </header>
+
+          {/* Messages Background Pattern Overlay */}
+          <div className="absolute inset-0 z-0 opacity-40 dark:opacity-5 pointer-events-none" style={{ backgroundImage: 'url("https://web.whatsapp.com/img/bg-chat-tile-dark_a4be512e7195b6b733d9110b408f075d.png")', backgroundRepeat: 'repeat' }}></div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto px-16 py-4 flex flex-col gap-1 z-10 relative">
+            <div className="text-center my-4">
+              <span className="inline-block bg-[#ffeecd] dark:bg-[#182229] text-[#54656f] dark:text-[#ffde8e] text-[12.5px] px-3 py-1.5 rounded-lg shadow-sm">
+                🔒 Messages are end-to-end encrypted. No one outside of this chat, not even SmartChatt, can read or listen to them.
+              </span>
+            </div>
+
+            {messages.length === 0 ? (
+              <div className="text-center text-[#54656f] mt-10">Send a message to start chatting!</div>
+            ) : (
+              messages.map((msg, idx) => {
+                const isUser = msg.sender === "User";
+                // WhatsApp styling: 
+                // Sent: #d9fdd3 (light) / #005c4b (dark)
+                // Received: #ffffff (light) / #202c33 (dark)
+                return (
+                  <div key={msg._id || idx} className={`flex w-full mb-1 ${isUser ? "justify-end" : "justify-start"}`}>
+                    <div className={`relative max-w-[65%] px-2 pt-1.5 pb-2 rounded-lg shadow-sm ${
+                        isUser 
+                          ? "bg-[#d9fdd3] dark:bg-[#005c4b] rounded-tr-none text-[#111b21] dark:text-[#e9edef]" 
+                          : "bg-white dark:bg-[#202c33] rounded-tl-none text-[#111b21] dark:text-[#e9edef]"
+                      }`}>
+                      <div className="text-[14.2px] leading-[19px] break-words pr-12 pb-2 pl-1">
+                        {!isUser && <div className="text-[12.5px] font-medium text-[#1fa855] dark:text-[#53bdeb] mb-0.5">{msg.sender}</div>}
+                        {msg.text}
+                      </div>
+                      <div className="absolute bottom-1 right-2 flex items-center gap-1">
+                        <span className="text-[11px] text-[#667781] dark:text-[#8696a0] leading-none mt-1">
+                          {formatTime(msg.createdAt)}
+                        </span>
+                        {isUser && (
+                          <svg viewBox="0 0 16 15" width="16" height="15" className="text-[#53bdeb] fill-current ml-0.5">
+                            <path d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.879a.32.32 0 0 1-.484.033l-.358-.325a.319.319 0 0 0-.484.032l-.378.483a.418.418 0 0 0 .036.541l1.32 1.266c.143.14.361.125.484-.033l6.272-8.048a.366.366 0 0 0-.064-.512zm-4.1 0l-.478-.372a.365.365 0 0 0-.51.063L4.566 9.879a.32.32 0 0 1-.484.033L1.891 7.769a.366.366 0 0 0-.515.006l-.423.433a.364.364 0 0 0 .006.514l3.258 3.185c.143.14.361.125.484-.033l6.272-8.048a.365.365 0 0 0-.063-.51z"></path>
+                          </svg>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Input Area */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent dark:from-[#0a0a0a] dark:via-[#0a0a0a]">
-          <div className="max-w-4xl mx-auto relative flex items-center">
-            <input 
-              type="text" 
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Message SmartChatt..." 
-              className="w-full bg-white dark:bg-[#111] border border-gray-200 dark:border-gray-800 text-gray-900 dark:text-gray-100 rounded-full pl-6 pr-14 py-4 focus:outline-none focus:ring-2 focus:ring-blue-500/50 shadow-sm transition-shadow"
-            />
-            <button 
-              onClick={handleSendMessage}
-              className="absolute right-2 p-2.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors shadow-md disabled:opacity-50"
-              disabled={!inputValue.trim()}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-            </button>
+                );
+              })
+            )}
+            <div ref={messagesEndRef} />
           </div>
-          <p className="text-center text-xs text-gray-400 mt-3 font-medium">SmartChatt can make mistakes. Consider verifying important information.</p>
-        </div>
-      </main>
+
+          {/* Input Area */}
+          <div className="h-[62px] px-4 py-2.5 bg-[#f0f2f5] dark:bg-[#202c33] flex items-center gap-3 shrink-0 z-10">
+            <button className="text-[#54656f] dark:text-[#8696a0] hover:text-[#111b21] dark:hover:text-[#d1d7db] shrink-0" aria-label="Emoji">
+              <svg viewBox="0 0 24 24" width="26" height="26" className="fill-current"><path d="M9.153 11.603c.795 0 1.439-.879 1.439-1.962s-.644-1.962-1.439-1.962-1.439.879-1.439 1.962.644 1.962 1.439 1.962zm-3.204 1.362c-.026-.307-.131 5.218 6.063 5.551 6.066-.25 6.066-5.551 6.066-5.551-6.078 1.416-12.129 0-12.129 0zm11.363-1.108s-.669 1.959-5.051 1.959c-3.505 0-5.388-1.164-5.607-1.959 0 0 5.912 1.055 10.658 0zM11.804 1.011C5.609 1.011.978 6.033.978 12.228s4.826 10.761 11.021 10.761S23.02 18.423 23.02 12.228c.001-6.195-5.021-11.217-11.216-11.217zM12 21.354c-5.273 0-9.381-3.886-9.381-9.159s3.942-9.548 9.215-9.548 9.548 4.275 9.548 9.548c-.001 5.272-4.109 9.159-9.382 9.159zm3.108-9.751c.795 0 1.439-.879 1.439-1.962s-.644-1.962-1.439-1.962-1.439.879-1.439 1.962.644 1.962 1.439 1.962z"></path></svg>
+            </button>
+            <button className="text-[#54656f] dark:text-[#8696a0] hover:text-[#111b21] dark:hover:text-[#d1d7db] shrink-0" aria-label="Attach">
+              <svg viewBox="0 0 24 24" width="24" height="24" className="fill-current"><path d="M1.816 15.556v.002c0 1.502.584 2.912 1.646 3.972s2.472 1.647 3.974 1.647a5.58 5.58 0 0 0 3.972-1.645l9.547-9.548c.769-.768 1.147-1.767 1.058-2.817-.079-.968-.548-1.927-1.319-2.698-1.594-1.592-4.068-1.711-5.517-.262l-7.916 7.915c-.881.881-.792 2.25.214 3.261.959.958 2.423 1.053 3.263.215l5.511-5.512c.28-.28.267-.722.053-.936l-.244-.244c-.191-.191-.567-.349-.957.04l-5.506 5.506c-.18.18-.635.127-.976-.214-.098-.097-.576-.613-.213-.973l7.915-7.917c.818-.817 2.267-.699 3.23.262.5.501.802 1.1.849 1.685.051.573-.156 1.111-.589 1.543l-9.547 9.549a3.97 3.97 0 0 1-2.829 1.171 3.975 3.975 0 0 1-2.83-1.173 3.973 3.973 0 0 1-1.172-2.828c0-1.071.415-2.076 1.172-2.83l7.209-7.211c.157-.157.264-.579.028-.814L11.5 4.36a.572.572 0 0 0-.834.018l-7.697 7.698a5.58 5.58 0 0 0-1.153 3.48z"></path></svg>
+            </button>
+            <div className="flex-1">
+              <input 
+                type="text" 
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Type a message" 
+                className="w-full h-10 bg-white dark:bg-[#2a3942] text-[15px] text-[#111b21] dark:text-[#e9edef] rounded-lg px-4 py-2 focus:outline-none placeholder-[#667781] dark:placeholder-[#8696a0]"
+              />
+            </div>
+            {inputValue.trim() ? (
+              <button 
+                onClick={handleSendMessage}
+                className="text-[#54656f] dark:text-[#8696a0] hover:text-[#111b21] dark:hover:text-[#d1d7db] shrink-0" 
+                aria-label="Send"
+              >
+                <svg viewBox="0 0 24 24" width="24" height="24" className="fill-current text-[#00a884]"><path d="M1.101 21.757L23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"></path></svg>
+              </button>
+            ) : (
+              <button className="text-[#54656f] dark:text-[#8696a0] hover:text-[#111b21] dark:hover:text-[#d1d7db] shrink-0" aria-label="Voice message">
+                <svg viewBox="0 0 24 24" width="24" height="24" className="fill-current"><path d="M11.999 14.942c2.001 0 3.531-1.53 3.531-3.531V4.35c0-2.001-1.53-3.531-3.531-3.531S8.469 2.35 8.469 4.35v7.061c0 2.001 1.53 3.531 3.53 3.531zm6.238-3.53c0 3.531-2.942 6.002-6.237 6.002s-6.237-2.471-6.237-6.002H3.761c0 4.001 3.178 7.297 7.061 7.885v3.884h2.354v-3.884c3.884-.588 7.061-3.884 7.061-7.885h-2.002z"></path></svg>
+              </button>
+            )}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }
