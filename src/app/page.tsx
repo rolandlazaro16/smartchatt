@@ -373,7 +373,15 @@ export default function Home() {
           </form>
           <p className="mt-4 text-center text-sm text-[#54656f] dark:text-[#aebac1]">
             {authMode === "login" ? "Don't have an account? " : "Already have an account? "}
-            <button className="text-[#00a884] font-medium" onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}>
+            <button 
+              className="text-[#00a884] font-medium" 
+              onClick={() => {
+                setAuthMode(authMode === "login" ? "register" : "login");
+                setAuthUsername("");
+                setAuthPassword("");
+                setAuthPhone("");
+              }}
+            >
               {authMode === "login" ? "Sign up" : "Log in"}
             </button>
           </p>
