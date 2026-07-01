@@ -650,9 +650,6 @@ export default function Home() {
               <span className="font-medium text-[#111b21] dark:text-[#e9edef]">{currentUser.username}</span>
             </div>
             <div className="flex items-center gap-4 text-[#54656f] dark:text-[#aebac1]">
-              <button onClick={() => setShowAddContactModal(true)} title="Register a Contact" className="hover:text-[#00a884]">
-                <svg viewBox="0 0 24 24" width="24" height="24" className="fill-current"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></svg>
-              </button>
               <button onClick={handleLogout} title="Logout" className="hover:text-red-500">
                 <svg viewBox="0 0 24 24" width="24" height="24" className="fill-current"><path d="M16 17v-3H9v-4h7V7l5 5-5 5M14 2a2 2 0 012 2v2h-2V4H5v16h9v-2h2v2a2 2 0 01-2 2H5a2 2 0 01-2-2V4a2 2 0 012-2h9z"></path></svg>
               </button>
@@ -669,7 +666,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto bg-white dark:bg-[#111b21]">
+          <div className="flex-1 overflow-y-auto bg-white dark:bg-[#111b21] relative">
             {contacts.map(contact => (
               <div 
                 key={contact._id} 
@@ -694,6 +691,15 @@ export default function Home() {
             {contacts.length === 0 && (
               <div className="p-4 text-center text-[#54656f]">No contacts found. Register another account to chat!</div>
             )}
+            
+            {/* Floating Action Button for Add Contact */}
+            <button 
+              onClick={() => setShowAddContactModal(true)}
+              className="absolute bottom-6 right-6 w-14 h-14 bg-[#00a884] rounded-full flex items-center justify-center text-white shadow-lg hover:bg-[#018f6f] transition-all transform hover:scale-105"
+              title="Add New Contact"
+            >
+              <svg viewBox="0 0 24 24" width="28" height="28" className="fill-current"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"></path></svg>
+            </button>
           </div>
         </aside>
 
