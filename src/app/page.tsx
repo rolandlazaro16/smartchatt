@@ -583,7 +583,7 @@ export default function Home() {
       <div className="flex w-full h-full max-w-[1600px] mx-auto xl:py-4 xl:px-4">
         
         {/* Sidebar */}
-        <aside className="w-[30%] min-w-[300px] max-w-[400px] bg-white dark:bg-[#111b21] border-r border-[#d1d7db] dark:border-[#222d34] flex flex-col hidden md:flex">
+        <aside className={`w-full md:w-[30%] md:min-w-[300px] md:max-w-[400px] bg-white dark:bg-[#111b21] border-r border-[#d1d7db] dark:border-[#222d34] flex-col ${selectedContact ? 'hidden md:flex' : 'flex'}`}>
           {/* Sidebar Header */}
           <header className="h-[60px] bg-[#f0f2f5] dark:bg-[#202c33] flex items-center justify-between px-4 shrink-0">
             <div className="flex items-center gap-3">
@@ -642,12 +642,18 @@ export default function Home() {
         </aside>
 
         {/* Main Chat Area */}
-        <main className="flex-1 flex flex-col bg-[#efeae2] dark:bg-[#0b141a] relative border-l border-[#d1d7db] dark:border-[#222d34]">
+        <main className={`flex-1 flex-col bg-[#efeae2] dark:bg-[#0b141a] relative border-l border-[#d1d7db] dark:border-[#222d34] ${selectedContact ? 'flex' : 'hidden md:flex'}`}>
           {selectedContact ? (
             <>
               {/* Chat Header */}
               <header className="h-[60px] bg-[#f0f2f5] dark:bg-[#202c33] flex items-center justify-between px-4 shrink-0 shadow-sm z-10">
                 <div className="flex items-center gap-3 cursor-pointer">
+                  <button 
+                    onClick={() => setSelectedContact(null)}
+                    className="md:hidden text-[#54656f] dark:text-[#aebac1]"
+                  >
+                    <svg viewBox="0 0 24 24" width="24" height="24" className="fill-current"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"></path></svg>
+                  </button>
                   <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center shrink-0 overflow-hidden">
                     {selectedContact.profilePicture ? (
                       <img src={`${API_URL}${selectedContact.profilePicture}`} alt={selectedContact.name || selectedContact.username} className="w-full h-full object-cover" />
@@ -673,7 +679,7 @@ export default function Home() {
               <div className="absolute inset-0 z-0 opacity-40 dark:opacity-5 pointer-events-none" style={{ backgroundImage: 'url("https://web.whatsapp.com/img/bg-chat-tile-dark_a4be512e7195b6b733d9110b408f075d.png")', backgroundRepeat: 'repeat' }}></div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto px-16 py-4 flex flex-col gap-1 z-10 relative">
+              <div className="flex-1 overflow-y-auto px-4 md:px-16 py-4 flex flex-col gap-1 z-10 relative">
                 <div className="text-center my-4">
                   <span className="inline-block bg-[#ffeecd] dark:bg-[#182229] text-[#54656f] dark:text-[#ffde8e] text-[12.5px] px-3 py-1.5 rounded-lg shadow-sm">
                     🔒 Messages are end-to-end encrypted. No one outside of this chat can read or listen to them.
