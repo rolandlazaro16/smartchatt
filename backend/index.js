@@ -254,6 +254,7 @@ app.post('/api/messages/upload', authenticateToken, upload.single('media'), asyn
 app.get('/', (req, res) => res.send('SmartChatt API is running!'));
 
 // --- Socket.IO ---
+const users = {};
 io.on('connection', (socket) => {
   socket.on('register_socket', (userId) => {
     users[socket.id] = userId;
