@@ -243,6 +243,48 @@ io.on('connection', (socket) => {
     }
   });
 
+  // --- WebRTC Signaling ---
+  socket.on('call_user', (data) => {
+    const receiverSocketId = Object.keys(users).find(key => users[key] === data.userToCall);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit('incoming_call', {
+        signal: data.signalData,
+        from: data.from,
+        callerName: data.callerName,
+        callerProfilePic: data.callerProfilePic,
+        callType: data.callType
+      });
+    }
+  });
+
+  socket.on('answer_call', (data) => {
+    const callerSocketId = Object.keys(users).find(key => users[key] === data.to);
+    if (callerSocketId) {
+      io.to(callerSocketId).emit('call_answered', data.signal);
+    }
+  });
+
+  socket.on('reject_call', (data) => {
+    const callerSocketId = Object.keys(users).find(key => users[key] === data.to);
+    if (callerSocketId) {
+      io.to(callerSocketId).emit('call_rejected');
+    }
+  });
+
+  socket.on('end_call', (data) => {
+    const otherSocketId = Object.keys(users).find(key => users[key] === data.to);
+    if (otherSocketId) {
+      io.to(otherSocketId).emit('call_ended');
+    }
+  });
+
+  socket.on('ice_candidate', (data) => {
+    const otherSocketId = Object.keys(users).find(key => users[key] === data.to);
+    if (otherSocketId) {
+      io.to(otherSocketId).emit('ice_candidate', { candidate: data.candidate, from: data.from });
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log("User disconnected:", socket.id);
     delete users[socket.id];

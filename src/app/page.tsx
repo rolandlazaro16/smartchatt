@@ -55,6 +55,17 @@ export default function Home() {
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // --- WebRTC States & Refs ---
+  const [callState, setCallState] = useState<"idle" | "calling" | "receiving" | "connected">("idle");
+  const [callType, setCallType] = useState<"audio" | "video">("video");
+  const [callerData, setCallerData] = useState<any>(null);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+
   // Auto-login from localStorage on mount
   useEffect(() => {
     const savedToken = localStorage.getItem("token");
@@ -82,6 +93,34 @@ export default function Home() {
         setMessages((prev) => [...prev, message]);
       });
 
+      socketRef.current.on("incoming_call", (data) => {
+        setCallState("receiving");
+        setCallType(data.callType);
+        setCallerData(data);
+      });
+
+      socketRef.current.on("call_answered", async (signal) => {
+        if (peerConnectionRef.current) {
+          await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(signal));
+          setCallState("connected");
+        }
+      });
+
+      socketRef.current.on("call_rejected", () => {
+        alert("Call was rejected");
+        cleanupCall();
+      });
+
+      socketRef.current.on("call_ended", () => {
+        cleanupCall();
+      });
+
+      socketRef.current.on("ice_candidate", async (data) => {
+        if (peerConnectionRef.current) {
+          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
+        }
+      });
+
       return () => {
         socketRef.current?.disconnect();
       };
@@ -103,6 +142,113 @@ export default function Home() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  const cleanupCall = () => {
+    setCallState("idle");
+    setCallerData(null);
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop());
+      setLocalStream(null);
+    }
+    if (remoteStream) {
+      remoteStream.getTracks().forEach(track => track.stop());
+      setRemoteStream(null);
+    }
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+  };
+
+  const setupPeerConnection = (stream: MediaStream, isInitiator: boolean, contactId: string) => {
+    const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+    peerConnectionRef.current = pc;
+
+    stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+    pc.ontrack = (event) => {
+      setRemoteStream(event.streams[0]);
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = event.streams[0];
+    };
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate && socketRef.current) {
+        socketRef.current.emit("ice_candidate", { candidate: event.candidate, to: contactId, from: currentUser?._id });
+      }
+    };
+
+    return pc;
+  };
+
+  const initiateCall = async (type: "audio" | "video") => {
+    if (!selectedContact || !currentUser) return;
+    setCallType(type);
+    setCallState("calling");
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: type === "video", audio: true });
+      setLocalStream(stream);
+      // Wait for React to render the video element if it hasn't already
+      setTimeout(() => {
+        if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      }, 100);
+
+      const pc = setupPeerConnection(stream, true, selectedContact._id);
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      socketRef.current?.emit("call_user", {
+        userToCall: selectedContact._id,
+        signalData: offer,
+        from: currentUser._id,
+        callerName: currentUser.name || currentUser.username,
+        callerProfilePic: currentUser.profilePicture,
+        callType: type
+      });
+    } catch (err) {
+      console.error("Failed to start call", err);
+      cleanupCall();
+    }
+  };
+
+  const acceptCall = async () => {
+    if (!callerData || !currentUser) return;
+    setCallState("connected");
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: callType === "video", audio: true });
+      setLocalStream(stream);
+      setTimeout(() => {
+        if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      }, 100);
+
+      const pc = setupPeerConnection(stream, false, callerData.from);
+      await pc.setRemoteDescription(new RTCSessionDescription(callerData.signal));
+      
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      socketRef.current?.emit("answer_call", { signal: answer, to: callerData.from });
+    } catch (err) {
+      console.error("Failed to accept call", err);
+      cleanupCall();
+    }
+  };
+
+  const rejectCall = () => {
+    if (callerData) {
+      socketRef.current?.emit("reject_call", { to: callerData.from });
+    }
+    cleanupCall();
+  };
+
+  const endCall = () => {
+    const toId = callState === "calling" || (callState === "connected" && !callerData) ? selectedContact?._id : callerData?.from;
+    if (toId) {
+      socketRef.current?.emit("end_call", { to: toId });
+    }
+    cleanupCall();
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -472,6 +618,14 @@ export default function Home() {
                     {selectedContact.phoneNumber && <span className="text-[13px] text-[#667781] dark:text-[#8696a0]">{selectedContact.phoneNumber}</span>}
                   </div>
                 </div>
+                <div className="flex items-center gap-4 text-[#54656f] dark:text-[#aebac1]">
+                  <button onClick={() => initiateCall("video")} className="hover:text-[#111b21] dark:hover:text-[#d1d7db] transition-colors" title="Video Call">
+                    <svg viewBox="0 0 24 24" width="24" height="24" className="fill-current"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"></path></svg>
+                  </button>
+                  <button onClick={() => initiateCall("audio")} className="hover:text-[#111b21] dark:hover:text-[#d1d7db] transition-colors" title="Audio Call">
+                    <svg viewBox="0 0 24 24" width="20" height="20" className="fill-current"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56-.35-.12-.74-.03-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.03 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"></path></svg>
+                  </button>
+                </div>
               </header>
 
               <div className="absolute inset-0 z-0 opacity-40 dark:opacity-5 pointer-events-none" style={{ backgroundImage: 'url("https://web.whatsapp.com/img/bg-chat-tile-dark_a4be512e7195b6b733d9110b408f075d.png")', backgroundRepeat: 'repeat' }}></div>
@@ -585,6 +739,70 @@ export default function Home() {
           )}
         </main>
       </div>
+
+      {/* --- WebRTC Call Overlays --- */}
+      {/* Incoming Call Modal */}
+      {callState === "receiving" && callerData && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#202c33] p-8 rounded-2xl flex flex-col items-center gap-6 shadow-2xl animate-bounce">
+            <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-600 flex items-center justify-center">
+              {callerData.callerProfilePic ? (
+                <img src={`${API_URL}${callerData.callerProfilePic}`} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-white text-4xl font-bold">{callerData.callerName.charAt(0).toUpperCase()}</span>
+              )}
+            </div>
+            <div className="text-center">
+              <h2 className="text-[#e9edef] text-xl font-medium mb-1">{callerData.callerName}</h2>
+              <p className="text-[#8696a0] text-sm">Incoming {callerData.callType} call...</p>
+            </div>
+            <div className="flex gap-6 mt-4">
+              <button onClick={rejectCall} className="w-14 h-14 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600 transition-colors shadow-lg">
+                <svg viewBox="0 0 24 24" width="28" height="28" className="fill-current transform rotate-[135deg]"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56-.35-.12-.74-.03-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.03 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"></path></svg>
+              </button>
+              <button onClick={acceptCall} className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center text-white hover:bg-green-600 transition-colors shadow-lg animate-pulse">
+                <svg viewBox="0 0 24 24" width="28" height="28" className="fill-current"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56-.35-.12-.74-.03-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.03 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"></path></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Active Call UI */}
+      {(callState === "calling" || callState === "connected") && (
+        <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center">
+          {/* Main Video/Audio */}
+          {callType === "video" ? (
+            <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center gap-6">
+              <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-700 animate-pulse flex items-center justify-center">
+                <svg viewBox="0 0 24 24" width="60" height="60" className="text-gray-400 fill-current"><path d="M12 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm9 11a1 1 0 0 1-2 0v-2a3 3 0 0 0-3-3H8a3 3 0 0 0-3 3v2a1 1 0 0 1-2 0v-2a5 5 0 0 1 5-5h8a5 5 0 0 1 5 5v2z"></path></svg>
+              </div>
+              <h2 className="text-white text-2xl font-medium">{callerData ? callerData.callerName : selectedContact?.name || selectedContact?.username}</h2>
+              <p className="text-gray-400 text-lg">{callState === "calling" ? "Calling..." : "Call Connected"}</p>
+            </div>
+          )}
+
+          {/* Local PiP Video */}
+          {callType === "video" && (
+            <div className="absolute top-8 right-8 w-48 h-64 bg-gray-800 rounded-lg overflow-hidden border-2 border-gray-600 shadow-2xl">
+              <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+            </div>
+          )}
+
+          {/* Controls Container */}
+          <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-6 bg-[#202c33]/80 backdrop-blur px-8 py-4 rounded-full">
+            <button className="w-12 h-12 bg-gray-600 hover:bg-gray-500 rounded-full flex items-center justify-center text-white transition-colors" title="Mute/Unmute">
+              <svg viewBox="0 0 24 24" width="24" height="24" className="fill-current"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"></path></svg>
+            </button>
+            <button onClick={endCall} className="w-14 h-14 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center text-white transition-colors" title="End Call">
+              <svg viewBox="0 0 24 24" width="28" height="28" className="fill-current transform rotate-[135deg]"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56-.35-.12-.74-.03-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.03 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"></path></svg>
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
