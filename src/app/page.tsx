@@ -49,6 +49,13 @@ export default function Home() {
   const [recordingTime, setRecordingTime] = useState(0);
 
   const [contactActionDialog, setContactActionDialog] = useState<User | null>(null);
+  
+  // Add Contact Modal State
+  const [showAddContactModal, setShowAddContactModal] = useState(false);
+  const [addContactUsername, setAddContactUsername] = useState("");
+  const [addContactPassword, setAddContactPassword] = useState("");
+  const [addContactPhone, setAddContactPhone] = useState("");
+  const [addContactFile, setAddContactFile] = useState<File | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -355,6 +362,37 @@ export default function Home() {
     }
   };
 
+  const handleAddContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const formData = new FormData();
+    formData.append("username", addContactUsername);
+    formData.append("password", addContactPassword);
+    formData.append("name", addContactUsername);
+    formData.append("phoneNumber", addContactPhone);
+    if (addContactFile) formData.append("profilePicture", addContactFile);
+
+    try {
+      const res = await fetch(`${API_URL}/api/auth/register`, {
+        method: "POST",
+        body: formData
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setShowAddContactModal(false);
+        setAddContactUsername("");
+        setAddContactPassword("");
+        setAddContactPhone("");
+        setAddContactFile(null);
+        alert("Contact registered successfully!");
+      } else {
+        alert(data.error || "Failed to register contact");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("An error occurred");
+    }
+  };
+
   const handleDeleteConversation = async () => {
     if (!selectedContact || !currentUser) return;
     if (!confirm(`Are you sure you want to delete the conversation with ${selectedContact.name || selectedContact.username}?`)) return;
@@ -612,6 +650,9 @@ export default function Home() {
               <span className="font-medium text-[#111b21] dark:text-[#e9edef]">{currentUser.username}</span>
             </div>
             <div className="flex items-center gap-4 text-[#54656f] dark:text-[#aebac1]">
+              <button onClick={() => setShowAddContactModal(true)} title="Register a Contact" className="hover:text-[#00a884]">
+                <svg viewBox="0 0 24 24" width="24" height="24" className="fill-current"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></svg>
+              </button>
               <button onClick={handleLogout} title="Logout" className="hover:text-red-500">
                 <svg viewBox="0 0 24 24" width="24" height="24" className="fill-current"><path d="M16 17v-3H9v-4h7V7l5 5-5 5M14 2a2 2 0 012 2v2h-2V4H5v16h9v-2h2v2a2 2 0 01-2 2H5a2 2 0 01-2-2V4a2 2 0 012-2h9z"></path></svg>
               </button>
@@ -835,6 +876,58 @@ export default function Home() {
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Contact Modal */}
+      {showAddContactModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-[#111b21] rounded-lg p-6 max-w-sm w-full shadow-2xl m-4 border border-[#d1d7db] dark:border-[#222d34]">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-medium text-[#111b21] dark:text-[#e9edef]">Register a Contact</h3>
+              <button onClick={() => setShowAddContactModal(false)} className="text-[#54656f] dark:text-[#aebac1] hover:text-red-500">
+                <svg viewBox="0 0 24 24" width="24" height="24" className="fill-current"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
+              </button>
+            </div>
+            <form onSubmit={handleAddContactSubmit} className="flex flex-col gap-4">
+              <input 
+                type="text" 
+                placeholder="Username" 
+                value={addContactUsername}
+                onChange={(e) => setAddContactUsername(e.target.value)}
+                className="px-4 py-2 border rounded-md dark:bg-[#2a3942] dark:border-[#222d34] dark:text-[#e9edef]"
+                required 
+              />
+              <input 
+                type="password" 
+                placeholder="Assign a Password" 
+                value={addContactPassword}
+                onChange={(e) => setAddContactPassword(e.target.value)}
+                className="px-4 py-2 border rounded-md dark:bg-[#2a3942] dark:border-[#222d34] dark:text-[#e9edef]"
+                required 
+              />
+              <input 
+                type="tel" 
+                placeholder="Phone Number" 
+                value={addContactPhone}
+                onChange={(e) => setAddContactPhone(e.target.value)}
+                className="px-4 py-2 border rounded-md dark:bg-[#2a3942] dark:border-[#222d34] dark:text-[#e9edef]"
+                required 
+              />
+              <div className="flex flex-col gap-1">
+                <label className="text-sm text-[#54656f] dark:text-[#aebac1]">Profile Picture (Optional)</label>
+                <input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={(e) => setAddContactFile(e.target.files?.[0] || null)}
+                  className="text-sm text-[#54656f] dark:text-[#aebac1]"
+                />
+              </div>
+              <button type="submit" className="bg-[#00a884] text-white py-2 rounded-md font-medium hover:bg-[#008f6f] mt-2">
+                Register Contact
+              </button>
+            </form>
           </div>
         </div>
       )}
