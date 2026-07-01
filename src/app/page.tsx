@@ -175,6 +175,22 @@ export default function Home() {
     }
   };
 
+  const handleDeleteMessage = async (msgId: string) => {
+    if (!confirm("Delete this message for me?")) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/messages/message/${msgId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setMessages(prev => prev.filter(m => m._id !== msgId));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleSendMessage = () => {
     if (!inputValue.trim() || !socketRef.current || !selectedContact || !currentUser) return;
 
@@ -455,11 +471,6 @@ export default function Home() {
                     {selectedContact.phoneNumber && <span className="text-[13px] text-[#667781] dark:text-[#8696a0]">{selectedContact.phoneNumber}</span>}
                   </div>
                 </div>
-                <div className="flex items-center gap-4 text-[#54656f] dark:text-[#aebac1]">
-                  <button onClick={handleDeleteConversation} title="Delete Conversation" className="hover:text-red-500 transition-colors">
-                    <svg viewBox="0 0 24 24" width="22" height="22" className="fill-current"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"></path></svg>
-                  </button>
-                </div>
               </header>
 
               <div className="absolute inset-0 z-0 opacity-40 dark:opacity-5 pointer-events-none" style={{ backgroundImage: 'url("https://web.whatsapp.com/img/bg-chat-tile-dark_a4be512e7195b6b733d9110b408f075d.png")', backgroundRepeat: 'repeat' }}></div>
@@ -481,7 +492,9 @@ export default function Home() {
                     const isUser = msg.senderId === currentUser._id;
                     return (
                       <div key={msg._id || idx} className={`flex w-full mb-1 ${isUser ? "justify-end" : "justify-start"}`}>
-                        <div className={`relative max-w-[65%] px-2 pt-1.5 pb-2 rounded-lg shadow-sm ${
+                        <div 
+                          onClick={() => msg._id && handleDeleteMessage(msg._id)}
+                          className={`relative max-w-[65%] px-2 pt-1.5 pb-2 rounded-lg shadow-sm cursor-pointer ${
                             isUser 
                               ? "bg-[#d9fdd3] dark:bg-[#005c4b] rounded-tr-none text-[#111b21] dark:text-[#e9edef]" 
                               : "bg-white dark:bg-[#202c33] rounded-tl-none text-[#111b21] dark:text-[#e9edef]"

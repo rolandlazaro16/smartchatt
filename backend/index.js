@@ -52,7 +52,8 @@ const messageSchema = new mongoose.Schema({
   mediaType: String,
   senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   receiverId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  deletedFor: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
 });
 const Message = mongoose.model('Message', messageSchema);
 
@@ -129,7 +130,8 @@ app.get('/api/messages/:contactId', authenticateToken, async (req, res) => {
       $or: [
         { senderId: currentUserId, receiverId: contactId },
         { senderId: contactId, receiverId: currentUserId }
-      ]
+      ],
+      deletedFor: { $ne: currentUserId }
     }).sort({ createdAt: 1 });
     
     res.json(messages);
@@ -144,16 +146,44 @@ app.delete('/api/messages/:contactId', authenticateToken, async (req, res) => {
     const { contactId } = req.params;
     const currentUserId = req.user.userId;
 
-    await Message.deleteMany({
+    // To properly "delete for me", we shouldn't hard-delete.
+    // Instead we can add deletedFor to all messages between these users.
+    await Message.updateMany({
       $or: [
         { senderId: currentUserId, receiverId: contactId },
         { senderId: contactId, receiverId: currentUserId }
       ]
+    }, {
+      $addToSet: { deletedFor: currentUserId }
     });
     
     res.json({ message: 'Conversation deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete conversation' });
+  }
+});
+
+// Delete Single Message
+app.delete('/api/messages/message/:messageId', authenticateToken, async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const currentUserId = req.user.userId;
+
+    const message = await Message.findById(messageId);
+    if (!message) return res.status(404).json({ error: 'Message not found' });
+
+    if (message.senderId.toString() !== currentUserId && message.receiverId.toString() !== currentUserId) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    if (!message.deletedFor.includes(currentUserId)) {
+      message.deletedFor.push(currentUserId);
+      await message.save();
+    }
+
+    res.json({ message: 'Message deleted for you' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete message' });
   }
 });
 
