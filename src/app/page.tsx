@@ -85,7 +85,14 @@ export default function Home() {
         headers: { Authorization: `Bearer ${token}` }
       })
       .then(res => res.json())
-      .then(data => setContacts(Array.isArray(data) ? data : []))
+      .then(data => {
+        if (data.error) {
+          if (data.error === "User not found") handleLogout();
+          console.error("Failed to fetch users:", data.error);
+        } else {
+          setContacts(Array.isArray(data) ? data : []);
+        }
+      })
       .catch(console.error);
 
       socketRef.current = io(API_URL);

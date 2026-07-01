@@ -119,12 +119,15 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/users', authenticateToken, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user.userId);
+    if (!currentUser) return res.status(401).json({ error: 'User not found' });
+    
     const hidden = currentUser.hiddenContacts || [];
     const users = await User.find({ 
       _id: { $ne: req.user.userId, $nin: hidden } 
     }).select('-password');
     res.json(users);
   } catch (error) {
+    console.error('Fetch users error:', error);
     res.status(500).json({ error: 'Failed to fetch users' });
   }
 });
