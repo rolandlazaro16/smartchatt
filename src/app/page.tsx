@@ -129,10 +129,16 @@ export default function Home() {
       const res = await fetch(`${API_URL}${endpoint}`, { method: "POST", headers, body });
       const data = await res.json();
       if (res.ok) {
-        setToken(data.token);
-        setCurrentUser(data.user);
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
+        if (authMode === "register") {
+          alert("Registration successful! Please log in with your new account.");
+          setAuthMode("login");
+          setAuthPassword(""); // Clear password for security
+        } else {
+          setToken(data.token);
+          setCurrentUser(data.user);
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("user", JSON.stringify(data.user));
+        }
       } else {
         alert(data.error);
       }
