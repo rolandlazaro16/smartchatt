@@ -301,6 +301,48 @@ export default function Home() {
     setSelectedContact(null);
   };
 
+  const handleDeleteAccount = async () => {
+    if (!currentUser) return;
+    if (!confirm("Are you sure you want to permanently delete your account? This action cannot be undone.")) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/users/me`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        handleLogout();
+        alert("Your account has been deleted.");
+      } else {
+        alert("Failed to delete account");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteContact = async (contactId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Are you sure you want to delete this contact?")) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/users/contacts/${contactId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setContacts(prev => prev.filter(c => c._id !== contactId));
+        if (selectedContact?._id === contactId) {
+          setSelectedContact(null);
+        }
+      } else {
+        alert("Failed to delete contact");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleDeleteConversation = async () => {
     if (!selectedContact || !currentUser) return;
     if (!confirm(`Are you sure you want to delete the conversation with ${selectedContact.name || selectedContact.username}?`)) return;
@@ -561,6 +603,9 @@ export default function Home() {
               <button onClick={handleLogout} title="Logout" className="hover:text-red-500">
                 <svg viewBox="0 0 24 24" width="24" height="24" className="fill-current"><path d="M16 17v-3H9v-4h7V7l5 5-5 5M14 2a2 2 0 012 2v2h-2V4H5v16h9v-2h2v2a2 2 0 01-2 2H5a2 2 0 01-2-2V4a2 2 0 012-2h9z"></path></svg>
               </button>
+              <button onClick={handleDeleteAccount} title="Delete Account" className="hover:text-red-500">
+                <svg viewBox="0 0 24 24" width="22" height="22" className="fill-current"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"></path></svg>
+              </button>
             </div>
           </header>
 
@@ -588,6 +633,13 @@ export default function Home() {
                 <div className="ml-3 flex-1 border-b border-[#f2f2f2] dark:border-[#222d34] pb-3 pt-1">
                   <div className="flex justify-between items-center">
                     <h3 className="text-[17px] font-normal text-[#111b21] dark:text-[#e9edef]">{contact.name || contact.username}</h3>
+                    <button 
+                      onClick={(e) => handleDeleteContact(contact._id, e)}
+                      className="text-[#8696a0] hover:text-red-500 transition-colors p-1"
+                      title="Delete Contact"
+                    >
+                      <svg viewBox="0 0 24 24" width="18" height="18" className="fill-current"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"></path></svg>
+                    </button>
                   </div>
                   {contact.phoneNumber && <div className="text-[13px] text-[#667781] dark:text-[#8696a0] mt-0.5">{contact.phoneNumber}</div>}
                 </div>

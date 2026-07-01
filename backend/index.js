@@ -43,6 +43,7 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   phoneNumber: { type: String, required: true },
   profilePicture: { type: String, default: '' },
+  hiddenContacts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }]
 });
 const User = mongoose.model('User', userSchema);
 
@@ -110,13 +111,41 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// Get Contacts (All other users)
+// Get Contacts (All other users not hidden)
 app.get('/api/users', authenticateToken, async (req, res) => {
   try {
-    const users = await User.find({ _id: { $ne: req.user.userId } }).select('-password');
+    const currentUser = await User.findById(req.user.userId);
+    const hidden = currentUser.hiddenContacts || [];
+    const users = await User.find({ 
+      _id: { $ne: req.user.userId, $nin: hidden } 
+    }).select('-password');
     res.json(users);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Delete a contact (Hide them)
+app.delete('/api/users/contacts/:contactId', authenticateToken, async (req, res) => {
+  try {
+    const { contactId } = req.params;
+    await User.findByIdAndUpdate(req.user.userId, {
+      $addToSet: { hiddenContacts: contactId }
+    });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete contact' });
+  }
+});
+
+// Delete User Account
+app.delete('/api/users/me', authenticateToken, async (req, res) => {
+  try {
+    const currentUserId = req.user.userId;
+    await User.findByIdAndDelete(currentUserId);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete account' });
   }
 });
 
