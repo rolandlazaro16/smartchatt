@@ -240,10 +240,10 @@ app.post('/api/messages/upload', authenticateToken, upload.single('media'), asyn
     await message.save();
 
     // Broadcast this message in real-time to the receiver
-    const receiverSocketId = Object.keys(users).find(key => users[key] === receiverId);
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit("receive_message", message);
-    }
+    const receiverSockets = Object.keys(users).filter(key => users[key] === receiverId);
+    receiverSockets.forEach(id => {
+      io.to(id).emit("receive_message", message);
+    });
 
     res.json(message);
   } catch (error) {
@@ -267,10 +267,10 @@ io.on('connection', (socket) => {
       await newMessage.save();
 
       // Send to receiver if online
-      const receiverSocketId = Object.keys(users).find(key => users[key] === receiverId);
-      if (receiverSocketId) {
-        io.to(receiverSocketId).emit('receive_message', newMessage);
-      }
+      const receiverSockets = Object.keys(users).filter(key => users[key] === receiverId);
+      receiverSockets.forEach(id => {
+        io.to(id).emit('receive_message', newMessage);
+      });
       
       // Also send back to sender so their UI updates
       socket.emit('receive_message', newMessage);
@@ -281,44 +281,44 @@ io.on('connection', (socket) => {
 
   // --- WebRTC Signaling ---
   socket.on('call_user', (data) => {
-    const receiverSocketId = Object.keys(users).find(key => users[key] === data.userToCall);
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit('incoming_call', {
+    const receiverSockets = Object.keys(users).filter(key => users[key] === data.userToCall);
+    receiverSockets.forEach(id => {
+      io.to(id).emit('incoming_call', {
         signal: data.signalData,
         from: data.from,
         callerName: data.callerName,
         callerProfilePic: data.callerProfilePic,
         callType: data.callType
       });
-    }
+    });
   });
 
   socket.on('answer_call', (data) => {
-    const callerSocketId = Object.keys(users).find(key => users[key] === data.to);
-    if (callerSocketId) {
-      io.to(callerSocketId).emit('call_answered', data.signal);
-    }
+    const callerSockets = Object.keys(users).filter(key => users[key] === data.to);
+    callerSockets.forEach(id => {
+      io.to(id).emit('call_answered', data.signal);
+    });
   });
 
   socket.on('reject_call', (data) => {
-    const callerSocketId = Object.keys(users).find(key => users[key] === data.to);
-    if (callerSocketId) {
-      io.to(callerSocketId).emit('call_rejected');
-    }
+    const callerSockets = Object.keys(users).filter(key => users[key] === data.to);
+    callerSockets.forEach(id => {
+      io.to(id).emit('call_rejected');
+    });
   });
 
   socket.on('end_call', (data) => {
-    const otherSocketId = Object.keys(users).find(key => users[key] === data.to);
-    if (otherSocketId) {
-      io.to(otherSocketId).emit('call_ended');
-    }
+    const otherSockets = Object.keys(users).filter(key => users[key] === data.to);
+    otherSockets.forEach(id => {
+      io.to(id).emit('call_ended');
+    });
   });
 
   socket.on('ice_candidate', (data) => {
-    const otherSocketId = Object.keys(users).find(key => users[key] === data.to);
-    if (otherSocketId) {
-      io.to(otherSocketId).emit('ice_candidate', { candidate: data.candidate, from: data.from });
-    }
+    const otherSockets = Object.keys(users).filter(key => users[key] === data.to);
+    otherSockets.forEach(id => {
+      io.to(id).emit('ice_candidate', { candidate: data.candidate, from: data.from });
+    });
   });
 
   socket.on('disconnect', () => {
