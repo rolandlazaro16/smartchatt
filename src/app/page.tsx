@@ -48,6 +48,8 @@ export default function Home() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
 
+  const [contactActionDialog, setContactActionDialog] = useState<User | null>(null);
+
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -321,10 +323,7 @@ export default function Home() {
     }
   };
 
-  const handleDeleteContact = async (contactId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!confirm("Are you sure you want to delete this contact?")) return;
-
+  const handleDeleteContact = async (contactId: string) => {
     try {
       const res = await fetch(`${API_URL}/api/users/contacts/${contactId}`, {
         method: "DELETE",
@@ -335,6 +334,7 @@ export default function Home() {
         if (selectedContact?._id === contactId) {
           setSelectedContact(null);
         }
+        setContactActionDialog(null);
       } else {
         alert("Failed to delete contact");
       }
@@ -620,7 +620,7 @@ export default function Home() {
             {contacts.map(contact => (
               <div 
                 key={contact._id} 
-                onClick={() => setSelectedContact(contact)}
+                onClick={() => setContactActionDialog(contact)}
                 className={`flex items-center px-3 py-3 cursor-pointer ${selectedContact?._id === contact._id ? 'bg-[#f0f2f5] dark:bg-[#2a3942]' : 'hover:bg-[#f5f6f6] dark:hover:bg-[#202c33]'}`}
               >
                 <div className="w-[49px] h-[49px] rounded-full bg-gray-300 dark:bg-gray-600 shrink-0 flex items-center justify-center shadow-sm overflow-hidden">
@@ -633,13 +633,6 @@ export default function Home() {
                 <div className="ml-3 flex-1 border-b border-[#f2f2f2] dark:border-[#222d34] pb-3 pt-1">
                   <div className="flex justify-between items-center">
                     <h3 className="text-[17px] font-normal text-[#111b21] dark:text-[#e9edef]">{contact.name || contact.username}</h3>
-                    <button 
-                      onClick={(e) => handleDeleteContact(contact._id, e)}
-                      className="text-[#8696a0] hover:text-red-500 transition-colors p-1"
-                      title="Delete Contact"
-                    >
-                      <svg viewBox="0 0 24 24" width="18" height="18" className="fill-current"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"></path></svg>
-                    </button>
                   </div>
                   {contact.phoneNumber && <div className="text-[13px] text-[#667781] dark:text-[#8696a0] mt-0.5">{contact.phoneNumber}</div>}
                 </div>
@@ -791,6 +784,42 @@ export default function Home() {
           )}
         </main>
       </div>
+
+      {/* Contact Action Dialog Modal */}
+      {contactActionDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-[#202c33] rounded-lg p-6 max-w-sm w-full shadow-2xl m-4">
+            <h3 className="text-xl font-medium text-[#111b21] dark:text-[#e9edef] mb-2 text-center">Contact Actions</h3>
+            <p className="text-[#54656f] dark:text-[#8696a0] text-center mb-6">What would you like to do with {contactActionDialog.name || contactActionDialog.username}?</p>
+            
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={() => {
+                  setSelectedContact(contactActionDialog);
+                  setContactActionDialog(null);
+                }}
+                className="w-full py-2.5 bg-[#00a884] hover:bg-[#018f6f] text-white rounded-md font-medium transition-colors"
+              >
+                Open Chat
+              </button>
+              
+              <button 
+                onClick={() => handleDeleteContact(contactActionDialog._id)}
+                className="w-full py-2.5 bg-transparent border border-red-500 text-red-500 hover:bg-red-500 hover:text-white rounded-md font-medium transition-colors"
+              >
+                Delete Contact
+              </button>
+              
+              <button 
+                onClick={() => setContactActionDialog(null)}
+                className="w-full py-2.5 bg-transparent text-[#54656f] dark:text-[#8696a0] hover:text-[#111b21] dark:hover:text-[#e9edef] rounded-md font-medium transition-colors mt-2"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --- WebRTC Call Overlays --- */}
       {/* Incoming Call Modal */}
