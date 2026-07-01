@@ -337,6 +337,7 @@ export default function Home() {
               onChange={(e) => setAuthUsername(e.target.value)}
               className="px-4 py-2 border rounded-md dark:bg-[#2a3942] dark:border-[#222d34] dark:text-[#e9edef]"
               required 
+              autoComplete={authMode === "login" ? "username" : "off"}
             />
             <input 
               type="password" 
@@ -345,6 +346,7 @@ export default function Home() {
               onChange={(e) => setAuthPassword(e.target.value)}
               className="px-4 py-2 border rounded-md dark:bg-[#2a3942] dark:border-[#222d34] dark:text-[#e9edef]"
               required 
+              autoComplete={authMode === "login" ? "current-password" : "new-password"}
             />
             {authMode === "register" && (
               <>
