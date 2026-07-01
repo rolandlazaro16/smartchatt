@@ -95,6 +95,14 @@ export default function Home() {
         setMessages((prev) => [...prev, message]);
       });
 
+      socketRef.current.on("new_user_registered", (newUser: User) => {
+        setContacts((prev) => {
+          if (newUser._id === currentUser._id) return prev;
+          if (prev.find(c => c._id === newUser._id)) return prev;
+          return [...prev, newUser];
+        });
+      });
+
       socketRef.current.on("incoming_call", (data) => {
         setCallState("receiving");
         setCallType(data.callType);

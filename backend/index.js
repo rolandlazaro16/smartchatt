@@ -88,6 +88,10 @@ app.post('/api/auth/register', upload.single('profilePicture'), async (req, res)
     await user.save();
 
     const token = jwt.sign({ userId: user._id, username: user.username }, JWT_SECRET);
+
+    // Notify all connected clients about the new user
+    io.emit("new_user_registered", { _id: user._id, username, name, phoneNumber, profilePicture });
+
     res.json({ token, user: { _id: user._id, username, name, phoneNumber, profilePicture } });
   } catch (error) {
     res.status(500).json({ error: 'Registration failed' });
