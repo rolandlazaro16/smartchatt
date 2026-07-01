@@ -150,6 +150,25 @@ export default function Home() {
     setSelectedContact(null);
   };
 
+  const handleDeleteConversation = async () => {
+    if (!selectedContact || !currentUser) return;
+    if (!confirm(`Are you sure you want to delete the conversation with ${selectedContact.name || selectedContact.username}?`)) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/messages/${selectedContact._id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setMessages([]);
+      } else {
+        alert("Failed to delete conversation");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleSendMessage = () => {
     if (!inputValue.trim() || !socketRef.current || !selectedContact || !currentUser) return;
 
@@ -401,7 +420,7 @@ export default function Home() {
                   <div className="flex justify-between items-center">
                     <h3 className="text-[17px] font-normal text-[#111b21] dark:text-[#e9edef]">{contact.name || contact.username}</h3>
                   </div>
-                  <div className="text-[13px] text-[#667781] dark:text-[#8696a0] mt-0.5">{contact.phoneNumber || 'No phone number'}</div>
+                  {contact.phoneNumber && <div className="text-[13px] text-[#667781] dark:text-[#8696a0] mt-0.5">{contact.phoneNumber}</div>}
                 </div>
               </div>
             ))}
@@ -427,8 +446,13 @@ export default function Home() {
                   </div>
                   <div className="flex flex-col">
                     <span className="font-medium text-[16px] text-[#111b21] dark:text-[#e9edef] leading-5">{selectedContact.name || selectedContact.username}</span>
-                    <span className="text-[13px] text-[#667781] dark:text-[#8696a0]">{selectedContact.phoneNumber || 'No phone number'}</span>
+                    {selectedContact.phoneNumber && <span className="text-[13px] text-[#667781] dark:text-[#8696a0]">{selectedContact.phoneNumber}</span>}
                   </div>
+                </div>
+                <div className="flex items-center gap-4 text-[#54656f] dark:text-[#aebac1]">
+                  <button onClick={handleDeleteConversation} title="Delete Conversation" className="hover:text-red-500 transition-colors">
+                    <svg viewBox="0 0 24 24" width="22" height="22" className="fill-current"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"></path></svg>
+                  </button>
                 </div>
               </header>
 

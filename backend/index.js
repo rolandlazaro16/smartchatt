@@ -138,6 +138,25 @@ app.get('/api/messages/:contactId', authenticateToken, async (req, res) => {
   }
 });
 
+// Delete Conversation
+app.delete('/api/messages/:contactId', authenticateToken, async (req, res) => {
+  try {
+    const { contactId } = req.params;
+    const currentUserId = req.user.userId;
+
+    await Message.deleteMany({
+      $or: [
+        { senderId: currentUserId, receiverId: contactId },
+        { senderId: contactId, receiverId: currentUserId }
+      ]
+    });
+    
+    res.json({ message: 'Conversation deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete conversation' });
+  }
+});
+
 // Upload Media Message
 app.post('/api/messages/upload', authenticateToken, upload.single('media'), async (req, res) => {
   try {
