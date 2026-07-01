@@ -41,7 +41,6 @@ export default function Home() {
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authUsername, setAuthUsername] = useState("");
   const [authPassword, setAuthPassword] = useState("");
-  const [authName, setAuthName] = useState("");
   const [authPhone, setAuthPhone] = useState("");
   const [authFile, setAuthFile] = useState<File | null>(null);
 
@@ -116,7 +115,7 @@ export default function Home() {
       const formData = new FormData();
       formData.append("username", authUsername);
       formData.append("password", authPassword);
-      formData.append("name", authName);
+      formData.append("name", authUsername); // Use username as the display name
       formData.append("phoneNumber", authPhone);
       if (authFile) formData.append("profilePicture", authFile);
       body = formData;
@@ -349,14 +348,6 @@ export default function Home() {
             />
             {authMode === "register" && (
               <>
-                <input 
-                  type="text" 
-                  placeholder="Full Name" 
-                  value={authName}
-                  onChange={(e) => setAuthName(e.target.value)}
-                  className="px-4 py-2 border rounded-md dark:bg-[#2a3942] dark:border-[#222d34] dark:text-[#e9edef]"
-                  required 
-                />
                 <input 
                   type="tel" 
                   placeholder="Phone Number" 
