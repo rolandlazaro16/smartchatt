@@ -22,7 +22,7 @@ interface Message {
   createdAt?: string;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://smartchatt.onrender.com';
+const API_URL = 'http://localhost:5000';
 
 const formatTime = (dateString?: string) => {
   if (!dateString) return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
